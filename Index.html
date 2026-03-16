@@ -322,17 +322,17 @@ function App() {
               <p style={{ color: "#9a7050", fontSize: "13px", marginBottom: "24px" }}>Let us know who's placing this order</p>
               <div style={{ marginBottom: "18px" }}>
                 <label style={labelStyle}>Full Name</label>
-                <input style={inputStyle("name")} placeholder="Your Full Name" value={form.name} onChange={e => update("name", e.target.value)} />
+                <input style={inputStyle("name")} placeholder="Your Full Name" value={form.name} onChange={e => update("name", e.target.value)} onKeyDown={e => { if (e.key === "Enter") e.preventDefault(); }} />
                 {errors.name && <p style={{ color: "#c0392b", fontSize: "12px", margin: "4px 0 0" }}>{errors.name}</p>}
               </div>
               <div style={{ marginBottom: "18px" }}>
                 <label style={labelStyle}>Email Address</label>
-                <input style={inputStyle("email")} type="email" placeholder="your@email.com" value={form.email} onChange={e => update("email", e.target.value)} />
+                <input style={inputStyle("email")} type="email" placeholder="your@email.com" value={form.email} onChange={e => update("email", e.target.value)} onKeyDown={e => { if (e.key === "Enter") e.preventDefault(); }} />
                 {errors.email && <p style={{ color: "#c0392b", fontSize: "12px", margin: "4px 0 0" }}>{errors.email}</p>}
               </div>
               <div style={{ marginBottom: "8px" }}>
                 <label style={labelStyle}>Phone Number</label>
-                <input style={inputStyle("phone")} type="tel" placeholder="(555) 000-0000" value={form.phone} onChange={e => update("phone", e.target.value)} />
+                <input style={inputStyle("phone")} type="tel" placeholder="(555) 000-0000" value={form.phone} onChange={e => update("phone", e.target.value)} onKeyDown={e => { if (e.key === "Enter") e.preventDefault(); }} />
                 {errors.phone && <p style={{ color: "#c0392b", fontSize: "12px", margin: "4px 0 0" }}>{errors.phone}</p>}
               </div>
             </div>
@@ -344,7 +344,7 @@ function App() {
               <p style={{ color: "#9a7050", fontSize: "13px", marginBottom: "24px" }}>Where and when should we bring your cake?</p>
               <div style={{ marginBottom: "18px" }}>
                 <label style={labelStyle}>Delivery Address</label>
-                <input style={inputStyle("address")} placeholder="Street Address, City, State, Zip" value={form.address} onChange={e => update("address", e.target.value)} />
+                <input style={inputStyle("address")} placeholder="Street Address, City, State, Zip" value={form.address} onChange={e => update("address", e.target.value)} onKeyDown={e => { if (e.key === "Enter") e.preventDefault(); }} />
                 {errors.address && <p style={{ color: "#c0392b", fontSize: "12px", margin: "4px 0 0" }}>{errors.address}</p>}
               </div>
               <div style={{ marginBottom: "18px" }}>
