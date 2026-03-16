@@ -349,7 +349,7 @@ function App() {
               </div>
               <div style={{ marginBottom: "18px" }}>
                 <label style={labelStyle}>Requested Delivery Date</label>
-                <p style="color: #9a7050; fontSize: 12px; margin: 0 0 8px; fontStyle: italic; letterSpacing: 0.3px;">Please allow a minimum of 3 days from today's order for preparation and scheduling.</p>
+                <p style={{ color: "#9a7050", fontSize: "12px", margin: "0 0 8px 0", fontStyle: "italic", letterSpacing: "0.3px" }}>Please allow a minimum of 3 days from today's order for preparation and scheduling.</p>
                 <input style={inputStyle("deliveryDate")} type="date" min={getTomorrowDate()} value={form.deliveryDate} onChange={e => update("deliveryDate", e.target.value)} />
                 {errors.deliveryDate && <p style={{ color: "#c0392b", fontSize: "12px", margin: "4px 0 0" }}>{errors.deliveryDate}</p>}
               </div>
