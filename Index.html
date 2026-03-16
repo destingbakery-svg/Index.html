@@ -123,6 +123,7 @@ function App() {
         : totalCakes + " Cakes x $40.00 Each = $" + (totalCakes * 40).toFixed(2);
 
       const templateParams = {
+        order_date: new Date().toISOString(),
         customer_name: form.name,
         customer_email: form.email,
         customer_phone: form.phone,
@@ -131,6 +132,7 @@ function App() {
         delivery_time: form.timeframe,
         delivery_address: form.address,
         order_total: "Total: " + calculateTotal() + " (" + priceNote + ")",
+        order_status: "Pending",
       };
 
       await fetch("https://api.emailjs.com/api/v1.0/email/send", {
