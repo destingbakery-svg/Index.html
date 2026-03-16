@@ -83,7 +83,7 @@ function App() {
 
   const getTomorrowDate = () => {
     const d = new Date();
-    d.setDate(d.getDate() + 1);
+    d.setDate(d.getDate() + 3);
     return d.toISOString().split("T")[0];
   };
 
@@ -241,7 +241,7 @@ function App() {
           <div style={{ position: "relative", zIndex: 1 }}>
             <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "26px", color: "#F5E6C8", margin: "0 0 2px", letterSpacing: "3px", textTransform: "uppercase" }}>DG's Bakery</h1>
             <div style={{ width: "36px", height: "1px", background: gold, margin: "8px auto" }} />
-            <p style={{ color: gold, fontSize: "10px", margin: "0", letterSpacing: "3px", textTransform: "uppercase" }}>3 Pound Cake Order Form</p>
+            <p style={{ color: gold, fontSize: "10px", margin: "0", letterSpacing: "3px", textTransform: "uppercase" }}>Handcrafted Pound Cake Order Form</p>
             <div style={{ display: "flex", justifyContent: "center", alignItems: "center", marginTop: "20px" }}>
               {steps.map((label, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center" }}>
@@ -264,7 +264,7 @@ function App() {
           {step === 1 && (
             <div>
               <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "20px", color: brown, marginBottom: "4px" }}>Choose Your Cakes</h2>
-              <p style={{ color: "#9a7050", fontSize: "13px", marginBottom: "4px" }}>Each Handcrafted 3 lb Pound Cake — <strong style={{ color: darkGold }}>$50.00 Each</strong></p>
+              <p style={{ color: "#9a7050", fontSize: "13px", marginBottom: "4px" }}>Each Handcrafted Pound Cake — <strong style={{ color: darkGold }}>$50.00 Each</strong></p>
               <p style={{ color: "#9a7050", fontSize: "12px", marginBottom: "22px", fontStyle: "italic" }}>Order 2 or more and save — $40.00 each</p>
 
               {cakeSelections.map((sel, i) => {
@@ -349,6 +349,7 @@ function App() {
               </div>
               <div style={{ marginBottom: "18px" }}>
                 <label style={labelStyle}>Requested Delivery Date</label>
+                <p style="color: #9a7050; fontSize: 12px; margin: 0 0 8px; fontStyle: italic; letterSpacing: 0.3px;">Please allow a minimum of 3 days from today's order for preparation and scheduling.</p>
                 <input style={inputStyle("deliveryDate")} type="date" min={getTomorrowDate()} value={form.deliveryDate} onChange={e => update("deliveryDate", e.target.value)} />
                 {errors.deliveryDate && <p style={{ color: "#c0392b", fontSize: "12px", margin: "4px 0 0" }}>{errors.deliveryDate}</p>}
               </div>
