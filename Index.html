@@ -391,44 +391,6 @@ function App() {
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);
-  <script>
-  // Wait until the order form is submitted
-  document.getElementById("orderForm").addEventListener("submit", function(e) {
-    e.preventDefault(); // prevent default form submission
-
-    // Collect the values from your form inputs
-    const orderPayload = {
-      order_date: new Date().toISOString(), // current timestamp
-      customer_name: document.getElementById("customerName").value,
-      email: document.getElementById("email").value,
-      phone: document.getElementById("phone").value,
-      address: document.getElementById("address").value,
-      delivery_date: document.getElementById("deliveryDate").value,
-      delivery_time: document.getElementById("deliveryTime").value,
-      order_details: document.getElementById("orderDetails").value,
-      total: document.getElementById("total").value
-    };
-
-    // Send the webhook to Make
-    fetch("https://hook.make.com/your-webhook-url", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(orderPayload)
-    })
-    .then(response => response.json())
-    .then(data => {
-      console.log("Order sent successfully:", data);
-      // Optionally, show a success message to the user
-      alert("Your order has been received!");
-      // Reset the form if desired
-      document.getElementById("orderForm").reset();
-    })
-    .catch(error => {
-      console.error("Error sending order:", error);
-      alert("There was an error submitting your order. Please try again.");
-    });
-  });
-</script>
-
+  </script>
 </body>
 </html>
