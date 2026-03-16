@@ -391,6 +391,23 @@ function App() {
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);
-  </script>
+  const orderPayload = {
+  order_date: new Date().toISOString(), // <-- adds the current timestamp
+  customer_name: customerNameInput.value,
+  email: emailInput.value,
+  phone: phoneInput.value,
+  address: addressInput.value,
+  delivery_date: deliveryDateInput.value,
+  delivery_time: deliveryTimeInput.value,
+  order_details: orderDetailsInput.value,
+  total: totalInput.value
+};
+
+// Send the payload to Make
+fetch("https://hook.make.com/your-webhook-url", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(orderPayload)});
+</script>
 </body>
 </html>
