@@ -379,3 +379,17 @@ function App() {
               </button>
             ) : (
               <button className="nav-btn" onClick={handleSubmit} disabled={sending} style={{ flex: 1, padding: "13px", borderRadius: "8px", border: "none", background: sending ? "#ccc" : "linear-gradient(135deg, " + gold + ", " + darkGold + ")", color: "#1a0e04", fontSize: "14px", cursor: sending ? "not-allowed" : "pointer", fontFamily: "'Playfair Display', serif", fontWeight: "700", letterSpacing: "2px", transition: "all 0.2s", boxShadow: "0 4px 15px rgba(201,168,76,0.35)" }}>
+                {sending ? "Placing Order..." : "Place My Order"}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
