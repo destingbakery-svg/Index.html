@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DG's Bakery — Order Form</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&family=Playfair+Display:wght@400;700;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { min-height: 100vh; }
+    input:focus, select:focus { outline: none; border-color: #C9A84C !important; box-shadow: 0 0 0 3px rgba(201,168,76,0.18) !important; }
+    select option { background: #fdf8f0; color: #3d2b1f; }
+    input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.6; }
+    .nav-btn:hover { transform: translateY(-1px); opacity: 0.93; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: #C9A84C; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+
+const EMAILJS_SERVICE_ID = "service_4e61tg5";
+const EMAILJS_TEMPLATE_ID = "template_koihkfp";
+const EMAILJS_PUBLIC_KEY = "eCKOavXw4nxLm9cKu";
+const MAKE_WEBHOOK = "https://hook.us2.make.com/so3lfk7jy1kc29frpyc03p5nlf52hg65";
+const BG_IMAGE = "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=1600&q=80";
+
+const cakes = [
+  {
+    id: "milliondollar",
+    name: "DG's Million Dollar Pound Cake",
+    icings: ["Cream Cheese Icing", "Vanilla Icing", "Lemon Vanilla Icing", "Buttercream Icing", "No Icing"],
+  },
+  {
+    id: "strawberry",
+    name: "DG's Strawberry Cream Cheese Pound Cake",
+    icings: ["Cream Cheese Icing", "Powdered Sugar", "No Icing"],
+  },
+  {
+    id: "cinnamonroll",
+    name: "DG's Cinnamon Roll Pound Cake",
+    icings: ["Vanilla Icing", "Cream Cheese Icing", "Buttercream Icing", "No Icing"],
+  },
+];
+
+const timeframes = ["9 AM – 12 PM", "12 PM – 4 PM", "4 PM – 9 PM"];
+const gold = "#C9A84C";
+const darkGold = "#A07830";
+const cream = "#FDF8F0";
+const brown = "#3D2B1F";
+
+function App() {
+  const [step, setStep] = React.useState(1);
+  const [submitted, setSubmitted] = React.useState(false);
+  const [sending, setSending] = React.useState(false);
+  const [form, setForm] = React.useState({ name: "", email: "", phone: "", address: "", deliveryDate: "", timeframe: "" });
+  const [cakeSelections, setCakeSelections] = React.useState([{ cakeId: "", icing: "", quantity: 1 }]);
+  const [errors, setErrors] = React.useState({});
+
+  const update = (field, val) => setForm(f => ({ ...f, [field]: val }));
+  const addCake = () => setCakeSelections(s => [...s, { cakeId: "", icing: "", quantity: 1 }]);
+  const removeCake = (i) => setCakeSelections(s => s.filter((_, idx) => idx !== i));
+  const updateCake = (i, field, val) => {
+    setCakeSelections(s => s.map((c, idx) => {
+      if (idx !== i) return c;
+      if (field === "cakeId") return { ...c, cakeId: val, icing: "" };
+      return { ...c, [field]: val };
+    }));
+  };
+
+  const getTotalCakes = () => cakeSelections.reduce((sum, c) => sum + c.quantity, 0);
+  const calculateTotal = () => {
+    const total = getTotalCakes();
+    if (total === 0) return "$0.00";
+    if (total === 1) return "$50.00";
+    return "$" + (total * 40).toFixed(2);
+  };
+
+  const getTomorrowDate = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split("T")[0];
+  };
+
+  const buildOrderDetails = () =>
+    cakeSelections.map(c => {
+      const cake = cakes.find(k => k.id === c.cakeId);
+      return c.quantity + "x " + cake?.name + " — " + c.icing;
+    }).join("\n");
+
+  const validate = () => {
+    const e = {};
+    if (step === 1 && !cakeSelections.every(c => c.cakeId && c.icing)) e.cakes = "Please complete all cake selections";
+    if (step === 2) {
+      if (!form.name.trim()) e.name = "Name is required";
+      if (!form.email.trim() || !/\S+@\S+\.\S+/.test(form.email)) e.email = "Valid email required";
+      if (!form.phone.trim()) e.phone = "Phone number is required";
+    }
+    if (step === 3) {
+      if (!form.address.trim()) e.address = "Delivery address is required";
+      if (!form.deliveryDate) e.deliveryDate = "Please select a delivery date";
+      if (!form.timeframe) e.timeframe = "Please select a delivery window";
+    }
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const next = () => { if (validate()) setStep(s => s + 1); };
+  const back = () => setStep(s => s - 1);
+
+  const handleSubmit = async () => {
+    if (!validate()) return;
+    setSending(true);
+    try {
+      const totalCakes = getTotalCakes();
+      const priceNote = totalCakes === 1
+        ? "1 Cake x $50.00 = $50.00"
+        : totalCakes + " Cakes x $40.00 Each = $" + (totalCakes * 40).toFixed(2);
+
+      const templateParams = {
+        customer_name: form.name,
+        customer_email: form.email,
+        customer_phone: form.phone,
+        order_details: buildOrderDetails(),
+        delivery_date: form.deliveryDate,
+        delivery_time: form.timeframe,
+        delivery_address: form.address,
+        order_total: "Total: " + calculateTotal() + " (" + priceNote + ")",
+      };
+
+      await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          service_id: EMAILJS_SERVICE_ID,
+          template_id: EMAILJS_TEMPLATE_ID,
+          user_id: EMAILJS_PUBLIC_KEY,
+          template_params: templateParams,
+        }),
+      });
+
+      await fetch(MAKE_WEBHOOK, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(templateParams),
+      });
+
+      setSubmitted(true);
+    } catch (err) {
+      alert("Something went wrong. Please try again.");
+    }
+    setSending(false);
+  };
+
+  const inputStyle = (field) => ({
+    width: "100%", padding: "11px 15px", borderRadius: "8px",
+    border: errors[field] ? "1.5px solid #c0392b" : "1.5px solid " + gold,
+    background: "rgba(253,248,240,0.92)", color: brown,
+    fontSize: "15px", fontFamily: "'Cormorant Garamond', serif",
+    outline: "none", boxSizing: "border-box", transition: "all 0.2s",
+  });
+
+  const labelStyle = {
+    display: "block", marginBottom: "5px", color: "#6B4C2A",
+    fontFamily: "'Cormorant Garamond', serif", fontSize: "13px",
+    fontWeight: "600", letterSpacing: "1px", textTransform: "uppercase",
+  };
+
+  const steps = ["Your Cakes", "Your Info", "Delivery"];
+
+  const pageStyle = {
+    minHeight: "100vh",
+    backgroundImage: "url(" + BG_IMAGE + ")",
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    backgroundAttachment: "fixed",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    padding: "30px 20px",
+    fontFamily: "'Cormorant Garamond', serif",
+    position: "relative",
+  };
+
+  const overlayStyle = {
+    position: "fixed", inset: 0,
+    background: "linear-gradient(135deg, rgba(20,10,0,0.85) 0%, rgba(10,8,0,0.78) 100%)",
+    zIndex: 0,
+  };
+
+  const cardStyle = {
+    background: "linear-gradient(160deg, rgba(253,248,240,0.97), rgba(250,240,220,0.97))",
+    borderRadius: "16px", maxWidth: "560px", width: "100%",
+    boxShadow: "0 25px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(201,168,76,0.35), inset 0 1px 0 rgba(255,255,255,0.7)",
+    border: "1px solid " + gold, overflow: "hidden",
+    position: "relative", zIndex: 1,
+  };
+
+  if (submitted) {
+    return (
+      <div style={pageStyle}>
+        <div style={overlayStyle} />
+        <div style={{ ...cardStyle, padding: "52px 44px", textAlign: "center" }}>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "30px", color: brown, marginBottom: "6px" }}>Order Confirmed</h1>
+          <div style={{ width: "48px", height: "1.5px", background: gold, margin: "0 auto 18px" }} />
+          <p style={{ color: "#5c3d2e", fontSize: "16px", lineHeight: "1.8", marginBottom: "10px" }}>
+            Thank you, <strong>{form.name}</strong>. A confirmation email is on its way to <strong>{form.email}</strong>.
+          </p>
+          <p style={{ color: "#5c3d2e", fontSize: "15px", lineHeight: "1.8", marginBottom: "24px" }}>
+            I'll personally be in touch to confirm your delivery on <strong>{form.deliveryDate}</strong> between <strong>{form.timeframe}</strong>. I can't wait for you to enjoy every bite.
+          </p>
+          <div style={{ background: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.4)", borderRadius: "10px", padding: "20px", textAlign: "left" }}>
+            <p style={{ fontFamily: "'Playfair Display', serif", fontWeight: "700", color: darkGold, marginBottom: "10px", fontSize: "12px", letterSpacing: "2px", textTransform: "uppercase" }}>Order Summary</p>
+            {cakeSelections.map((c, i) => {
+              const cake = cakes.find(k => k.id === c.cakeId);
+              return <p key={i} style={{ color: brown, fontSize: "14px", margin: "5px 0", lineHeight: "1.5" }}>• {c.quantity}x {cake?.name}<br /><span style={{ color: "#7a5c3a", fontSize: "13px", paddingLeft: "14px" }}>Icing: {c.icing}</span></p>;
+            })}
+            <div style={{ borderTop: "1px solid rgba(201,168,76,0.3)", marginTop: "12px", paddingTop: "12px" }}>
+              <p style={{ color: darkGold, fontSize: "17px", fontWeight: "700", margin: "0 0 6px", fontFamily: "'Playfair Display', serif" }}>Total: {calculateTotal()}</p>
+              <p style={{ color: "#7a5c3a", fontSize: "13px", margin: "2px 0" }}>Date: {form.deliveryDate} · {form.timeframe}</p>
+              <p style={{ color: "#7a5c3a", fontSize: "13px", margin: "2px 0" }}>Address: {form.address}</p>
+            </div>
+          </div>
+          <p style={{ color: "#a07848", fontSize: "13px", marginTop: "22px", fontStyle: "italic", letterSpacing: "0.5px" }}>— DG's Bakery, Made with Love</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={pageStyle}>
+      <div style={overlayStyle} />
+      <div style={cardStyle}>
+
+        {/* Header */}
+        <div style={{ background: "linear-gradient(135deg, #1a0e04 0%, #2a1a08 40%, #1a0e04 100%)", padding: "30px 40px 24px", textAlign: "center", borderBottom: "1px solid " + gold, position: "relative", overflow: "hidden" }}>
+          <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 0%, rgba(201,168,76,0.18) 0%, transparent 65%)" }} />
+          <div style={{ position: "relative", zIndex: 1 }}>
+            <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "26px", color: "#F5E6C8", margin: "0 0 2px", letterSpacing: "3px", textTransform: "uppercase" }}>DG's Bakery</h1>
+            <div style={{ width: "36px", height: "1px", background: gold, margin: "8px auto" }} />
+            <p style={{ color: gold, fontSize: "10px", margin: "0", letterSpacing: "3px", textTransform: "uppercase" }}>3 Pound Cake Order Form</p>
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", marginTop: "20px" }}>
+              {steps.map((label, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center" }}>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
+                    <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: step > i+1 ? gold : step === i+1 ? cream : "rgba(201,168,76,0.12)", border: "1.5px solid " + (step >= i+1 ? gold : "rgba(201,168,76,0.25)"), display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", fontWeight: "700", color: step >= i+1 ? "#1a0e04" : "rgba(201,168,76,0.4)", transition: "all 0.3s" }}>
+                      {step > i+1 ? "✓" : i+1}
+                    </div>
+                    <span style={{ fontSize: "9px", color: step === i+1 ? "#F5E6C8" : "rgba(201,168,76,0.35)", letterSpacing: "1px", textTransform: "uppercase", whiteSpace: "nowrap" }}>{label}</span>
+                  </div>
+                  {i < steps.length-1 && <div style={{ width: "32px", height: "1px", background: step > i+1 ? gold : "rgba(201,168,76,0.18)", margin: "0 6px 16px", transition: "all 0.3s" }} />}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: "30px 40px 36px" }}>
+
+          {step === 1 && (
+            <div>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "20px", color: brown, marginBottom: "4px" }}>Choose Your Cakes</h2>
+              <p style={{ color: "#9a7050", fontSize: "13px", marginBottom: "4px" }}>Each Handcrafted 3 lb Pound Cake — <strong style={{ color: darkGold }}>$50.00 Each</strong></p>
+              <p style={{ color: "#9a7050", fontSize: "12px", marginBottom: "22px", fontStyle: "italic" }}>Order 2 or more and save — $40.00 each</p>
+
+              {cakeSelections.map((sel, i) => {
+                const selectedCake = cakes.find(c => c.id === sel.cakeId);
+                return (
+                  <div key={i} style={{ background: "rgba(201,168,76,0.06)", border: "1px solid rgba(201,168,76,0.35)", borderRadius: "10px", padding: "18px", marginBottom: "14px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                      <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: "700", color: brown, fontSize: "14px" }}>Cake {i+1}</span>
+                      {cakeSelections.length > 1 && <button onClick={() => removeCake(i)} style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: "12px", fontFamily: "'Cormorant Garamond', serif" }}>Remove</button>}
+                    </div>
+                    <div style={{ marginBottom: "10px" }}>
+                      <label style={labelStyle}>Flavor — $50.00</label>
+                      <select style={{ ...inputStyle(""), appearance: "none" }} value={sel.cakeId} onChange={e => updateCake(i, "cakeId", e.target.value)}>
+                        <option value="">Select a Flavor...</option>
+                        {cakes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    </div>
+                    <div style={{ marginBottom: "10px" }}>
+                      <label style={labelStyle}>Icing</label>
+                      <select style={{ ...inputStyle(""), appearance: "none" }} value={sel.icing} onChange={e => updateCake(i, "icing", e.target.value)} disabled={!sel.cakeId}>
+                        <option value="">Select an Icing...</option>
+                        {selectedCake?.icings.map(ic => <option key={ic} value={ic}>{ic}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Quantity</label>
+                      <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+                        <button onClick={() => updateCake(i, "quantity", Math.max(1, sel.quantity-1))} style={{ width: "32px", height: "32px", borderRadius: "50%", border: "1.5px solid " + gold, background: cream, color: brown, fontSize: "16px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+                        <span style={{ fontSize: "17px", fontWeight: "700", color: brown, minWidth: "20px", textAlign: "center" }}>{sel.quantity}</span>
+                        <button onClick={() => updateCake(i, "quantity", sel.quantity+1)} style={{ width: "32px", height: "32px", borderRadius: "50%", border: "1.5px solid " + gold, background: cream, color: brown, fontSize: "16px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {errors.cakes && <p style={{ color: "#c0392b", fontSize: "12px", margin: "-6px 0 10px" }}>{errors.cakes}</p>}
+
+              <button onClick={addCake} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "1.5px dashed " + gold, background: "transparent", color: "#9a7050", fontSize: "13px", cursor: "pointer", fontFamily: "'Cormorant Garamond', serif", letterSpacing: "1px", marginBottom: "6px" }}>
+                + Add Another Cake
+              </button>
+
+              {getTotalCakes() > 0 && (
+                <div style={{ background: "linear-gradient(135deg, rgba(201,168,76,0.1), rgba(201,168,76,0.05))", border: "1px solid rgba(201,168,76,0.45)", borderRadius: "8px", padding: "14px 18px", marginTop: "12px", textAlign: "center" }}>
+                  <p style={{ fontFamily: "'Playfair Display', serif", color: darkGold, fontWeight: "700", fontSize: "18px", margin: "0 0 3px" }}>Estimated Total: {calculateTotal()}</p>
+                  <p style={{ color: "#9a7050", fontSize: "12px", margin: "0" }}>{getTotalCakes() === 1 ? "1 Cake · $50.00" : getTotalCakes() + " Cakes · $40.00 Each"}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {step === 2 && (
+            <div>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "20px", color: brown, marginBottom: "4px" }}>Your Information</h2>
+              <p style={{ color: "#9a7050", fontSize: "13px", marginBottom: "24px" }}>Let us know who's placing this order</p>
+              <div style={{ marginBottom: "18px" }}>
+                <label style={labelStyle}>Full Name</label>
+                <input style={inputStyle("name")} placeholder="Your Full Name" value={form.name} onChange={e => update("name", e.target.value)} />
+                {errors.name && <p style={{ color: "#c0392b", fontSize: "12px", margin: "4px 0 0" }}>{errors.name}</p>}
+              </div>
+              <div style={{ marginBottom: "18px" }}>
+                <label style={labelStyle}>Email Address</label>
+                <input style={inputStyle("email")} type="email" placeholder="your@email.com" value={form.email} onChange={e => update("email", e.target.value)} />
+                {errors.email && <p style={{ color: "#c0392b", fontSize: "12px", margin: "4px 0 0" }}>{errors.email}</p>}
+              </div>
+              <div style={{ marginBottom: "8px" }}>
+                <label style={labelStyle}>Phone Number</label>
+                <input style={inputStyle("phone")} type="tel" placeholder="(555) 000-0000" value={form.phone} onChange={e => update("phone", e.target.value)} />
+                {errors.phone && <p style={{ color: "#c0392b", fontSize: "12px", margin: "4px 0 0" }}>{errors.phone}</p>}
+              </div>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "20px", color: brown, marginBottom: "4px" }}>Delivery Details</h2>
+              <p style={{ color: "#9a7050", fontSize: "13px", marginBottom: "24px" }}>Where and when should we bring your cake?</p>
+              <div style={{ marginBottom: "18px" }}>
+                <label style={labelStyle}>Delivery Address</label>
+                <input style={inputStyle("address")} placeholder="Street Address, City, State, Zip" value={form.address} onChange={e => update("address", e.target.value)} />
+                {errors.address && <p style={{ color: "#c0392b", fontSize: "12px", margin: "4px 0 0" }}>{errors.address}</p>}
+              </div>
+              <div style={{ marginBottom: "18px" }}>
+                <label style={labelStyle}>Requested Delivery Date</label>
+                <input style={inputStyle("deliveryDate")} type="date" min={getTomorrowDate()} value={form.deliveryDate} onChange={e => update("deliveryDate", e.target.value)} />
+                {errors.deliveryDate && <p style={{ color: "#c0392b", fontSize: "12px", margin: "4px 0 0" }}>{errors.deliveryDate}</p>}
+              </div>
+              <div style={{ marginBottom: "8px" }}>
+                <label style={labelStyle}>Delivery Time Window</label>
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  {timeframes.map(t => (
+                    <label key={t} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "11px 15px", borderRadius: "8px", border: "1.5px solid " + (form.timeframe === t ? gold : "rgba(201,168,76,0.3)"), background: form.timeframe === t ? "rgba(201,168,76,0.08)" : "rgba(253,248,240,0.5)", cursor: "pointer", transition: "all 0.2s" }}>
+                      <input type="radio" name="timeframe" value={t} checked={form.timeframe === t} onChange={() => update("timeframe", t)} style={{ accentColor: darkGold, width: "15px", height: "15px" }} />
+                      <span style={{ color: brown, fontSize: "15px", fontFamily: "'Cormorant Garamond', serif" }}>{t}</span>
+                    </label>
+                  ))}
+                </div>
+                {errors.timeframe && <p style={{ color: "#c0392b", fontSize: "12px", margin: "6px 0 0" }}>{errors.timeframe}</p>}
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: "10px", marginTop: "24px" }}>
+            {step > 1 && (
+              <button className="nav-btn" onClick={back} style={{ flex: 1, padding: "13px", borderRadius: "8px", border: "1.5px solid " + gold, background: "transparent", color: "#7a5c3a", fontSize: "14px", cursor: "pointer", fontFamily: "'Cormorant Garamond', serif", fontWeight: "600", letterSpacing: "1px", transition: "all 0.2s" }}>
+                Back
+              </button>
+            )}
+            {step < 3 ? (
+              <button className="nav-btn" onClick={next} style={{ flex: 1, padding: "13px", borderRadius: "8px", border: "none", background: "linear-gradient(135deg, #1a0e04, #3a2008)", color: "#F5E6C8", fontSize: "14px", cursor: "pointer", fontFamily: "'Playfair Display', serif", fontWeight: "700", letterSpacing: "2px", transition: "all 0.2s", boxShadow: "0 4px 15px rgba(0,0,0,0.3)" }}>
+                Continue
+              </button>
+            ) : (
+              <button className="nav-btn" onClick={handleSubmit} disabled={sending} style={{ flex: 1, padding: "13px", borderRadius: "8px", border: "none", background: sending ? "#ccc" : "linear-gradient(135deg, " + gold + ", " + darkGold + ")", color: "#1a0e04", fontSize: "14px", cursor: sending ? "not-allowed" : "pointer", fontFamily: "'Playfair Display', serif", fontWeight: "700", letterSpacing: "2px", transition: "all 0.2s", boxShadow: "0 4px 15px rgba(201,168,76,0.35)" }}>
