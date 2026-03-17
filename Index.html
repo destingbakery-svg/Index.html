@@ -7,6 +7,7 @@
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://js.stripe.com/v3/"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&family=Playfair+Display:wght@400;700;900&display=swap" rel="stylesheet" />
   <style>
@@ -18,6 +19,9 @@
     .nav-btn:hover { transform: translateY(-1px); opacity: 0.93; }
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-thumb { background: #C9A84C; border-radius: 4px; }
+    .StripeElement { padding: 11px 15px; border-radius: 8px; border: 1.5px solid #C9A84C; background: rgba(253,248,240,0.92); }
+    .StripeElement--focus { border-color: #C9A84C !important; box-shadow: 0 0 0 3px rgba(201,168,76,0.18) !important; }
+    .order-notice { background: linear-gradient(135deg, rgba(201,168,76,0.15), rgba(201,168,76,0.08)); border: 1.5px solid rgba(201,168,76,0.5); border-radius: 10px; padding: 12px 16px; margin-bottom: 20px; text-align: center; }
   </style>
 </head>
 <body>
@@ -29,21 +33,27 @@ const EMAILJS_TEMPLATE_ID = "template_koihkfp";
 const EMAILJS_PUBLIC_KEY = "eCKOavXw4nxLm9cKu";
 const MAKE_WEBHOOK = "https://hook.us2.make.com/so3lfk7jy1kc29frpyc03p5nlf52hg65";
 const BG_IMAGE = "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=1600&q=80";
+const STRIPE_KEY = "pk_live_51TBnej0rRL427hFGkiIEphcbZIfDJLBuPi2aqkUNHBEbMNJYaha7B0cnсРVue0tt3hx3Twsgx8g90oZxoELMXQ30005dctHcwh";
+const PICKUP_ADDRESS = "3706 Busciglio Street, Tampa, FL 33619";
+const BACKEND_URL = "https://dgs-bakery-backend.onrender.com";
 
 const cakes = [
   {
     id: "milliondollar",
     name: "DG's Million Dollar Pound Cake",
+    image: "https://i.imgur.com/placeholder1.jpg",
     icings: ["Cream Cheese Icing", "Vanilla Icing", "Lemon Vanilla Icing", "Buttercream Icing", "No Icing"],
   },
   {
     id: "strawberry",
     name: "DG's Strawberry Cream Cheese Pound Cake",
+    image: "https://i.imgur.com/placeholder2.jpg",
     icings: ["Cream Cheese Icing", "Powdered Sugar", "No Icing"],
   },
   {
     id: "cinnamonroll",
     name: "DG's Cinnamon Roll Pound Cake",
+    image: "https://i.imgur.com/placeholder3.jpg",
     icings: ["Vanilla Icing", "Cream Cheese Icing", "Buttercream Icing", "No Icing"],
   },
 ];
@@ -54,13 +64,67 @@ const darkGold = "#A07830";
 const cream = "#FDF8F0";
 const brown = "#3D2B1F";
 
+// Upload your cake images to imgur.com and replace these URLs
+const cakeImages = {
+  milliondollar: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/Large_Squash_and_Zucchini.jpg/1200px-Large_Squash_and_Zucchini.jpg",
+  strawberry: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/Large_Squash_and_Zucchini.jpg/1200px-Large_Squash_and_Zucchini.jpg",
+  cinnamonroll: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/Large_Squash_and_Zucchini.jpg/1200px-Large_Squash_and_Zucchini.jpg",
+};
+
 function App() {
   const [step, setStep] = React.useState(1);
   const [submitted, setSubmitted] = React.useState(false);
   const [sending, setSending] = React.useState(false);
-  const [form, setForm] = React.useState({ name: "", email: "", phone: "", address: "", deliveryDate: "", timeframe: "" });
+  const [countdown, setCountdown] = React.useState(30);
+  const [form, setForm] = React.useState({ name: "", email: "", phone: "", address: "", deliveryDate: "", timeframe: "", fulfillment: "" });
   const [cakeSelections, setCakeSelections] = React.useState([{ cakeId: "", icing: "", quantity: 1 }]);
   const [errors, setErrors] = React.useState({});
+  const [cardElement, setCardElement] = React.useState(null);
+  const [stripeInstance, setStripeInstance] = React.useState(null);
+  const [paymentError, setPaymentError] = React.useState("");
+
+  // Initialize Stripe
+  React.useEffect(() => {
+    const stripe = Stripe(STRIPE_KEY);
+    setStripeInstance(stripe);
+  }, []);
+
+  // Mount Stripe card element when on step 4
+  React.useEffect(() => {
+    if (step === 4 && stripeInstance && !cardElement) {
+      const elements = stripeInstance.elements();
+      const card = elements.create("card", {
+        style: {
+          base: {
+            fontFamily: "'Cormorant Garamond', serif",
+            fontSize: "15px",
+            color: brown,
+            "::placeholder": { color: "#9a7050" },
+          }
+        }
+      });
+      setTimeout(() => {
+        const el = document.getElementById("card-element");
+        if (el) {
+          card.mount("#card-element");
+          setCardElement(card);
+        }
+      }, 100);
+    }
+  }, [step, stripeInstance]);
+
+  // Countdown after submission
+  React.useEffect(() => {
+    if (submitted) {
+      const interval = setInterval(() => {
+        setCountdown(c => {
+          if (c <= 1) { clearInterval(interval); window.location.reload(); return 0; }
+          return c - 1;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [submitted]);
 
   const update = (field, val) => setForm(f => ({ ...f, [field]: val }));
   const addCake = () => setCakeSelections(s => [...s, { cakeId: "", icing: "", quantity: 1 }]);
@@ -79,6 +143,12 @@ function App() {
     if (total === 0) return "$0.00";
     if (total === 1) return "$50.00";
     return "$" + (total * 40).toFixed(2);
+  };
+  const calculateTotalCents = () => {
+    const total = getTotalCakes();
+    if (total === 0) return 0;
+    if (total === 1) return 5000;
+    return total * 4000;
   };
 
   const getTomorrowDate = () => {
@@ -102,9 +172,10 @@ function App() {
       if (!form.phone.trim()) e.phone = "Phone number is required";
     }
     if (step === 3) {
-      if (!form.address.trim()) e.address = "Delivery address is required";
-      if (!form.deliveryDate) e.deliveryDate = "Please select a delivery date";
-      if (!form.timeframe) e.timeframe = "Please select a delivery window";
+      if (!form.fulfillment) e.fulfillment = "Please select Delivery or Pickup";
+      if (form.fulfillment === "Delivery" && !form.address.trim()) e.address = "Delivery address is required";
+      if (!form.deliveryDate) e.deliveryDate = "Please select a date";
+      if (!form.timeframe) e.timeframe = "Please select a time window";
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -114,13 +185,28 @@ function App() {
   const back = () => setStep(s => s - 1);
 
   const handleSubmit = async () => {
-    if (!validate()) return;
+    if (!cardElement || !stripeInstance) { setPaymentError("Payment system not loaded. Please refresh."); return; }
     setSending(true);
+    setPaymentError("");
     try {
+      // Get payment intent from backend
+      const intentRes = await fetch(BACKEND_URL + "/create-payment-intent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: calculateTotalCents() }),
+      });
+      const { clientSecret } = await intentRes.json();
+
+      // Confirm payment with Stripe
+      const { error, paymentIntent } = await stripeInstance.confirmCardPayment(clientSecret, {
+        payment_method: { card: cardElement, billing_details: { name: form.name, email: form.email } }
+      });
+
+      if (error) { setPaymentError(error.message); setSending(false); return; }
+
       const totalCakes = getTotalCakes();
-      const priceNote = totalCakes === 1
-        ? "1 Cake x $50.00 = $50.00"
-        : totalCakes + " Cakes x $40.00 Each = $" + (totalCakes * 40).toFixed(2);
+      const priceNote = totalCakes === 1 ? "1 Cake x $50.00 = $50.00" : totalCakes + " Cakes x $40.00 Each = $" + (totalCakes * 40).toFixed(2);
+      const displayAddress = form.fulfillment === "Pickup" ? "Pickup — " + PICKUP_ADDRESS : form.address;
 
       const templateParams = {
         order_date: new Date().toISOString(),
@@ -130,9 +216,11 @@ function App() {
         order_details: buildOrderDetails(),
         delivery_date: form.deliveryDate,
         delivery_time: form.timeframe,
-        delivery_address: form.address,
+        delivery_address: displayAddress,
+        fulfillment_method: form.fulfillment,
         order_total: "Total: " + calculateTotal() + " (" + priceNote + ")",
-        order_status: "Pending",
+        order_status: "Confirmed — Paid",
+        payment_id: paymentIntent.id,
       };
 
       await fetch("https://api.emailjs.com/api/v1.0/email/send", {
@@ -154,7 +242,7 @@ function App() {
 
       setSubmitted(true);
     } catch (err) {
-      alert("Something went wrong. Please try again.");
+      setPaymentError("Something went wrong. Please try again.");
     }
     setSending(false);
   };
@@ -173,17 +261,15 @@ function App() {
     fontWeight: "600", letterSpacing: "1px", textTransform: "uppercase",
   };
 
-  const steps = ["Your Cakes", "Your Info", "Delivery"];
+  const steps = ["Your Cakes", "Your Info", "Fulfillment", "Payment"];
 
   const pageStyle = {
     minHeight: "100vh",
     backgroundImage: "url(" + BG_IMAGE + ")",
-    backgroundSize: "cover",
-    backgroundPosition: "center",
+    backgroundSize: "cover", backgroundPosition: "center",
     backgroundAttachment: "fixed",
     display: "flex", alignItems: "center", justifyContent: "center",
-    padding: "30px 20px",
-    fontFamily: "'Cormorant Garamond', serif",
+    padding: "30px 20px", fontFamily: "'Cormorant Garamond', serif",
     position: "relative",
   };
 
@@ -209,10 +295,12 @@ function App() {
           <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "30px", color: brown, marginBottom: "6px" }}>Order Confirmed</h1>
           <div style={{ width: "48px", height: "1.5px", background: gold, margin: "0 auto 18px" }} />
           <p style={{ color: "#5c3d2e", fontSize: "16px", lineHeight: "1.8", marginBottom: "10px" }}>
-            Thank you, <strong>{form.name}</strong>. A confirmation email is on its way to <strong>{form.email}</strong>.
+            Thank you, <strong>{form.name}</strong>. Your payment was received and a confirmation email is on its way to <strong>{form.email}</strong>.
           </p>
           <p style={{ color: "#5c3d2e", fontSize: "15px", lineHeight: "1.8", marginBottom: "24px" }}>
-            I'll personally be in touch to confirm your delivery on <strong>{form.deliveryDate}</strong> between <strong>{form.timeframe}</strong>. I can't wait for you to enjoy every bite.
+            {form.fulfillment === "Pickup"
+              ? "Your pickup location will be emailed to you 2 days prior to your scheduled date."
+              : "I'll personally be in touch to confirm your delivery on " + form.deliveryDate + " between " + form.timeframe + "."}
           </p>
           <div style={{ background: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.4)", borderRadius: "10px", padding: "20px", textAlign: "left" }}>
             <p style={{ fontFamily: "'Playfair Display', serif", fontWeight: "700", color: darkGold, marginBottom: "10px", fontSize: "12px", letterSpacing: "2px", textTransform: "uppercase" }}>Order Summary</p>
@@ -221,12 +309,15 @@ function App() {
               return <p key={i} style={{ color: brown, fontSize: "14px", margin: "5px 0", lineHeight: "1.5" }}>• {c.quantity}x {cake?.name}<br /><span style={{ color: "#7a5c3a", fontSize: "13px", paddingLeft: "14px" }}>Icing: {c.icing}</span></p>;
             })}
             <div style={{ borderTop: "1px solid rgba(201,168,76,0.3)", marginTop: "12px", paddingTop: "12px" }}>
-              <p style={{ color: darkGold, fontSize: "17px", fontWeight: "700", margin: "0 0 6px", fontFamily: "'Playfair Display', serif" }}>Total: {calculateTotal()}</p>
+              <p style={{ color: darkGold, fontSize: "17px", fontWeight: "700", margin: "0 0 6px", fontFamily: "'Playfair Display', serif" }}>Total Paid: {calculateTotal()}</p>
+              <p style={{ color: "#7a5c3a", fontSize: "13px", margin: "2px 0" }}>Method: {form.fulfillment}</p>
               <p style={{ color: "#7a5c3a", fontSize: "13px", margin: "2px 0" }}>Date: {form.deliveryDate} · {form.timeframe}</p>
-              <p style={{ color: "#7a5c3a", fontSize: "13px", margin: "2px 0" }}>Address: {form.address}</p>
+              {form.fulfillment === "Pickup" && <p style={{ color: "#7a5c3a", fontSize: "13px", margin: "2px 0" }}>Pickup: {PICKUP_ADDRESS}</p>}
+              {form.fulfillment === "Delivery" && <p style={{ color: "#7a5c3a", fontSize: "13px", margin: "2px 0" }}>Address: {form.address}</p>}
             </div>
           </div>
-          <p style={{ color: "#a07848", fontSize: "13px", marginTop: "22px", fontStyle: "italic", letterSpacing: "0.5px" }}>— DG's Bakery, Made with Love</p>
+          <p style={{ color: "#a07848", fontSize: "13px", marginTop: "22px", fontStyle: "italic" }}>— DG's Bakery, Made with Love</p>
+          <p style={{ color: "#9a7050", fontSize: "12px", marginTop: "16px" }}>This page will reset in <strong>{countdown}</strong> seconds</p>
         </div>
       </div>
     );
@@ -244,16 +335,23 @@ function App() {
             <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "26px", color: "#F5E6C8", margin: "0 0 2px", letterSpacing: "3px", textTransform: "uppercase" }}>DG's Bakery</h1>
             <div style={{ width: "36px", height: "1px", background: gold, margin: "8px auto" }} />
             <p style={{ color: gold, fontSize: "10px", margin: "0", letterSpacing: "3px", textTransform: "uppercase" }}>Handcrafted Pound Cake Order Form</p>
-            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", marginTop: "20px" }}>
+
+            {/* Order Notice */}
+            <div style={{ background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.3)", borderRadius: "8px", padding: "8px 14px", marginTop: "14px" }}>
+              <p style={{ color: "#F5E6C8", fontSize: "11px", letterSpacing: "0.5px" }}>All orders must be placed a minimum of 3 days in advance</p>
+            </div>
+
+            {/* Progress */}
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", marginTop: "16px" }}>
               {steps.map((label, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center" }}>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
-                    <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: step > i+1 ? gold : step === i+1 ? cream : "rgba(201,168,76,0.12)", border: "1.5px solid " + (step >= i+1 ? gold : "rgba(201,168,76,0.25)"), display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", fontWeight: "700", color: step >= i+1 ? "#1a0e04" : "rgba(201,168,76,0.4)", transition: "all 0.3s" }}>
+                    <div style={{ width: "26px", height: "26px", borderRadius: "50%", background: step > i+1 ? gold : step === i+1 ? cream : "rgba(201,168,76,0.12)", border: "1.5px solid " + (step >= i+1 ? gold : "rgba(201,168,76,0.25)"), display: "flex", alignItems: "center", justifyContent: "center", fontSize: "10px", fontWeight: "700", color: step >= i+1 ? "#1a0e04" : "rgba(201,168,76,0.4)", transition: "all 0.3s" }}>
                       {step > i+1 ? "✓" : i+1}
                     </div>
-                    <span style={{ fontSize: "9px", color: step === i+1 ? "#F5E6C8" : "rgba(201,168,76,0.35)", letterSpacing: "1px", textTransform: "uppercase", whiteSpace: "nowrap" }}>{label}</span>
+                    <span style={{ fontSize: "8px", color: step === i+1 ? "#F5E6C8" : "rgba(201,168,76,0.35)", letterSpacing: "1px", textTransform: "uppercase", whiteSpace: "nowrap" }}>{label}</span>
                   </div>
-                  {i < steps.length-1 && <div style={{ width: "32px", height: "1px", background: step > i+1 ? gold : "rgba(201,168,76,0.18)", margin: "0 6px 16px", transition: "all 0.3s" }} />}
+                  {i < steps.length-1 && <div style={{ width: "24px", height: "1px", background: step > i+1 ? gold : "rgba(201,168,76,0.18)", margin: "0 4px 16px", transition: "all 0.3s" }} />}
                 </div>
               ))}
             </div>
@@ -263,6 +361,7 @@ function App() {
         {/* Body */}
         <div style={{ padding: "30px 40px 36px" }}>
 
+          {/* STEP 1 — Cakes */}
           {step === 1 && (
             <div>
               <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "20px", color: brown, marginBottom: "4px" }}>Choose Your Cakes</h2>
@@ -272,31 +371,43 @@ function App() {
               {cakeSelections.map((sel, i) => {
                 const selectedCake = cakes.find(c => c.id === sel.cakeId);
                 return (
-                  <div key={i} style={{ background: "rgba(201,168,76,0.06)", border: "1px solid rgba(201,168,76,0.35)", borderRadius: "10px", padding: "18px", marginBottom: "14px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                      <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: "700", color: brown, fontSize: "14px" }}>Cake {i+1}</span>
-                      {cakeSelections.length > 1 && <button onClick={() => removeCake(i)} style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: "12px", fontFamily: "'Cormorant Garamond', serif" }}>Remove</button>}
-                    </div>
-                    <div style={{ marginBottom: "10px" }}>
-                      <label style={labelStyle}>Flavor — $50.00</label>
-                      <select style={{ ...inputStyle(""), appearance: "none" }} value={sel.cakeId} onChange={e => updateCake(i, "cakeId", e.target.value)}>
-                        <option value="">Select a Flavor...</option>
-                        {cakes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                      </select>
-                    </div>
-                    <div style={{ marginBottom: "10px" }}>
-                      <label style={labelStyle}>Icing</label>
-                      <select style={{ ...inputStyle(""), appearance: "none" }} value={sel.icing} onChange={e => updateCake(i, "icing", e.target.value)} disabled={!sel.cakeId}>
-                        <option value="">Select an Icing...</option>
-                        {selectedCake?.icings.map(ic => <option key={ic} value={ic}>{ic}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Quantity</label>
-                      <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-                        <button onClick={() => updateCake(i, "quantity", Math.max(1, sel.quantity-1))} style={{ width: "32px", height: "32px", borderRadius: "50%", border: "1.5px solid " + gold, background: cream, color: brown, fontSize: "16px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
-                        <span style={{ fontSize: "17px", fontWeight: "700", color: brown, minWidth: "20px", textAlign: "center" }}>{sel.quantity}</span>
-                        <button onClick={() => updateCake(i, "quantity", sel.quantity+1)} style={{ width: "32px", height: "32px", borderRadius: "50%", border: "1.5px solid " + gold, background: cream, color: brown, fontSize: "16px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+                  <div key={i} style={{ background: "rgba(201,168,76,0.06)", border: "1px solid rgba(201,168,76,0.35)", borderRadius: "10px", overflow: "hidden", marginBottom: "14px" }}>
+                    {/* Cake Photo */}
+                    {sel.cakeId && (
+                      <div style={{ width: "100%", height: "160px", overflow: "hidden" }}>
+                        <img
+                          src={sel.cakeId === "milliondollar" ? "https://i.imgur.com/GlNYSep.jpeg" : sel.cakeId === "cinnamonroll" ? "https://i.imgur.com/o4IW3CH.jpeg" : "https://i.imgur.com/VR4Y4vg.jpeg"}
+                          alt={selectedCake?.name}
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        />
+                      </div>
+                    )}
+                    <div style={{ padding: "18px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                        <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: "700", color: brown, fontSize: "14px" }}>Cake {i+1}</span>
+                        {cakeSelections.length > 1 && <button onClick={() => removeCake(i)} style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: "12px", fontFamily: "'Cormorant Garamond', serif" }}>Remove</button>}
+                      </div>
+                      <div style={{ marginBottom: "10px" }}>
+                        <label style={labelStyle}>Flavor — $50.00</label>
+                        <select style={{ ...inputStyle(""), appearance: "none" }} value={sel.cakeId} onChange={e => updateCake(i, "cakeId", e.target.value)}>
+                          <option value="">Select a Flavor...</option>
+                          {cakes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                      </div>
+                      <div style={{ marginBottom: "10px" }}>
+                        <label style={labelStyle}>Icing</label>
+                        <select style={{ ...inputStyle(""), appearance: "none" }} value={sel.icing} onChange={e => updateCake(i, "icing", e.target.value)} disabled={!sel.cakeId}>
+                          <option value="">Select an Icing...</option>
+                          {selectedCake?.icings.map(ic => <option key={ic} value={ic}>{ic}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={labelStyle}>Quantity</label>
+                        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+                          <button onClick={() => updateCake(i, "quantity", Math.max(1, sel.quantity-1))} style={{ width: "32px", height: "32px", borderRadius: "50%", border: "1.5px solid " + gold, background: cream, color: brown, fontSize: "16px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+                          <span style={{ fontSize: "17px", fontWeight: "700", color: brown, minWidth: "20px", textAlign: "center" }}>{sel.quantity}</span>
+                          <button onClick={() => updateCake(i, "quantity", sel.quantity+1)} style={{ width: "32px", height: "32px", borderRadius: "50%", border: "1.5px solid " + gold, background: cream, color: brown, fontSize: "16px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -318,6 +429,7 @@ function App() {
             </div>
           )}
 
+          {/* STEP 2 — Info */}
           {step === 2 && (
             <div>
               <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "20px", color: brown, marginBottom: "4px" }}>Your Information</h2>
@@ -340,49 +452,103 @@ function App() {
             </div>
           )}
 
+          {/* STEP 3 — Fulfillment */}
           {step === 3 && (
             <div>
-              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "20px", color: brown, marginBottom: "4px" }}>Delivery Details</h2>
-              <p style={{ color: "#9a7050", fontSize: "13px", marginBottom: "24px" }}>Where and when should we bring your cake?</p>
-              <div style={{ marginBottom: "18px" }}>
-                <label style={labelStyle}>Delivery Address</label>
-                <input style={inputStyle("address")} placeholder="Street Address, City, State, Zip" value={form.address} onChange={e => update("address", e.target.value)} onKeyDown={e => { if (e.key === "Enter") e.preventDefault(); }} />
-                {errors.address && <p style={{ color: "#c0392b", fontSize: "12px", margin: "4px 0 0" }}>{errors.address}</p>}
-              </div>
-              <div style={{ marginBottom: "18px" }}>
-                <label style={labelStyle}>Requested Delivery Date</label>
-                <p style={{ color: "#9a7050", fontSize: "12px", margin: "0 0 8px 0", fontStyle: "italic", letterSpacing: "0.3px" }}>Please allow a minimum of 3 days from today's order for preparation and scheduling.</p>
-                <input style={inputStyle("deliveryDate")} type="date" min={getTomorrowDate()} value={form.deliveryDate} onChange={e => update("deliveryDate", e.target.value)} />
-                {errors.deliveryDate && <p style={{ color: "#c0392b", fontSize: "12px", margin: "4px 0 0" }}>{errors.deliveryDate}</p>}
-              </div>
-              <div style={{ marginBottom: "8px" }}>
-                <label style={labelStyle}>Delivery Time Window</label>
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                  {timeframes.map(t => (
-                    <label key={t} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "11px 15px", borderRadius: "8px", border: "1.5px solid " + (form.timeframe === t ? gold : "rgba(201,168,76,0.3)"), background: form.timeframe === t ? "rgba(201,168,76,0.08)" : "rgba(253,248,240,0.5)", cursor: "pointer", transition: "all 0.2s" }}>
-                      <input type="radio" name="timeframe" value={t} checked={form.timeframe === t} onChange={() => update("timeframe", t)} style={{ accentColor: darkGold, width: "15px", height: "15px" }} />
-                      <span style={{ color: brown, fontSize: "15px", fontFamily: "'Cormorant Garamond', serif" }}>{t}</span>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "20px", color: brown, marginBottom: "4px" }}>Order Fulfillment</h2>
+              <p style={{ color: "#9a7050", fontSize: "13px", marginBottom: "24px" }}>How would you like to receive your order?</p>
+
+              <div style={{ marginBottom: "20px" }}>
+                <label style={labelStyle}>Fulfillment Method</label>
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  {["Delivery", "Pickup"].map(method => (
+                    <label key={method} style={{ display: "flex", alignItems: "flex-start", gap: "12px", padding: "13px 16px", borderRadius: "8px", border: "1.5px solid " + (form.fulfillment === method ? gold : "rgba(201,168,76,0.3)"), background: form.fulfillment === method ? "rgba(201,168,76,0.08)" : "rgba(253,248,240,0.5)", cursor: "pointer", transition: "all 0.2s" }}>
+                      <input type="radio" name="fulfillment" value={method} checked={form.fulfillment === method} onChange={() => { update("fulfillment", method); if (method === "Pickup") update("address", "Pickup"); else update("address", ""); }} style={{ accentColor: darkGold, width: "15px", height: "15px", marginTop: "3px" }} />
+                      <div>
+                        <span style={{ color: brown, fontSize: "15px", fontFamily: "'Cormorant Garamond', serif", fontWeight: "600" }}>{method}</span>
+                        {method === "Pickup" && <p style={{ color: "#9a7050", fontSize: "12px", margin: "3px 0 0", fontStyle: "italic", lineHeight: "1.5" }}>Your pickup location will be emailed to you 2 days prior to your scheduled date.</p>}
+                      </div>
                     </label>
                   ))}
                 </div>
-                {errors.timeframe && <p style={{ color: "#c0392b", fontSize: "12px", margin: "6px 0 0" }}>{errors.timeframe}</p>}
+                {errors.fulfillment && <p style={{ color: "#c0392b", fontSize: "12px", margin: "6px 0 0" }}>{errors.fulfillment}</p>}
               </div>
+
+              {form.fulfillment === "Delivery" && (
+                <div style={{ marginBottom: "18px" }}>
+                  <label style={labelStyle}>Delivery Address</label>
+                  <input style={inputStyle("address")} placeholder="Street Address, City, State, Zip" value={form.address} onChange={e => update("address", e.target.value)} onKeyDown={e => { if (e.key === "Enter") e.preventDefault(); }} />
+                  {errors.address && <p style={{ color: "#c0392b", fontSize: "12px", margin: "4px 0 0" }}>{errors.address}</p>}
+                </div>
+              )}
+
+              {form.fulfillment && (
+                <div>
+                  <div style={{ marginBottom: "18px" }}>
+                    <label style={labelStyle}>{form.fulfillment === "Pickup" ? "Requested Pickup Date" : "Requested Delivery Date"}</label>
+                    <p style={{ color: "#9a7050", fontSize: "12px", margin: "0 0 8px 0", fontStyle: "italic" }}>Please allow a minimum of 3 days from today's order for preparation and scheduling.</p>
+                    <input style={inputStyle("deliveryDate")} type="date" min={getTomorrowDate()} value={form.deliveryDate} onChange={e => update("deliveryDate", e.target.value)} />
+                    {errors.deliveryDate && <p style={{ color: "#c0392b", fontSize: "12px", margin: "4px 0 0" }}>{errors.deliveryDate}</p>}
+                  </div>
+                  <div style={{ marginBottom: "8px" }}>
+                    <label style={labelStyle}>{form.fulfillment === "Pickup" ? "Preferred Pickup Time" : "Delivery Time Window"}</label>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      {timeframes.map(t => (
+                        <label key={t} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "11px 15px", borderRadius: "8px", border: "1.5px solid " + (form.timeframe === t ? gold : "rgba(201,168,76,0.3)"), background: form.timeframe === t ? "rgba(201,168,76,0.08)" : "rgba(253,248,240,0.5)", cursor: "pointer", transition: "all 0.2s" }}>
+                          <input type="radio" name="timeframe" value={t} checked={form.timeframe === t} onChange={() => update("timeframe", t)} style={{ accentColor: darkGold, width: "15px", height: "15px" }} />
+                          <span style={{ color: brown, fontSize: "15px", fontFamily: "'Cormorant Garamond', serif" }}>{t}</span>
+                        </label>
+                      ))}
+                    </div>
+                    {errors.timeframe && <p style={{ color: "#c0392b", fontSize: "12px", margin: "6px 0 0" }}>{errors.timeframe}</p>}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
+          {/* STEP 4 — Payment */}
+          {step === 4 && (
+            <div>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "20px", color: brown, marginBottom: "4px" }}>Secure Payment</h2>
+              <p style={{ color: "#9a7050", fontSize: "13px", marginBottom: "24px" }}>Your order will be confirmed upon successful payment</p>
+
+              <div style={{ background: "rgba(201,168,76,0.06)", border: "1px solid rgba(201,168,76,0.35)", borderRadius: "10px", padding: "16px", marginBottom: "20px" }}>
+                <p style={{ fontFamily: "'Playfair Display', serif", fontWeight: "700", color: darkGold, marginBottom: "8px", fontSize: "13px", letterSpacing: "1px", textTransform: "uppercase" }}>Order Summary</p>
+                {cakeSelections.map((c, i) => {
+                  const cake = cakes.find(k => k.id === c.cakeId);
+                  return <p key={i} style={{ color: brown, fontSize: "13px", margin: "3px 0" }}>• {c.quantity}x {cake?.name} — {c.icing}</p>;
+                })}
+                <div style={{ borderTop: "1px solid rgba(201,168,76,0.3)", marginTop: "10px", paddingTop: "10px" }}>
+                  <p style={{ color: darkGold, fontSize: "18px", fontWeight: "700", fontFamily: "'Playfair Display', serif" }}>Total: {calculateTotal()}</p>
+                  <p style={{ color: "#7a5c3a", fontSize: "12px", marginTop: "3px" }}>{form.fulfillment} · {form.deliveryDate} · {form.timeframe}</p>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: "20px" }}>
+                <label style={labelStyle}>Card Details</label>
+                <div id="card-element" style={{ padding: "13px 15px", borderRadius: "8px", border: "1.5px solid " + gold, background: "rgba(253,248,240,0.92)", minHeight: "44px" }} />
+                {paymentError && <p style={{ color: "#c0392b", fontSize: "12px", margin: "6px 0 0" }}>{paymentError}</p>}
+              </div>
+
+              <p style={{ color: "#9a7050", fontSize: "11px", textAlign: "center", marginBottom: "8px", letterSpacing: "0.3px" }}>Secured by Stripe — Your card info is never stored</p>
+            </div>
+          )}
+
+          {/* Navigation */}
           <div style={{ display: "flex", gap: "10px", marginTop: "24px" }}>
             {step > 1 && (
               <button className="nav-btn" onClick={back} style={{ flex: 1, padding: "13px", borderRadius: "8px", border: "1.5px solid " + gold, background: "transparent", color: "#7a5c3a", fontSize: "14px", cursor: "pointer", fontFamily: "'Cormorant Garamond', serif", fontWeight: "600", letterSpacing: "1px", transition: "all 0.2s" }}>
                 Back
               </button>
             )}
-            {step < 3 ? (
+            {step < 4 ? (
               <button className="nav-btn" onClick={next} style={{ flex: 1, padding: "13px", borderRadius: "8px", border: "none", background: "linear-gradient(135deg, #1a0e04, #3a2008)", color: "#F5E6C8", fontSize: "14px", cursor: "pointer", fontFamily: "'Playfair Display', serif", fontWeight: "700", letterSpacing: "2px", transition: "all 0.2s", boxShadow: "0 4px 15px rgba(0,0,0,0.3)" }}>
                 Continue
               </button>
             ) : (
               <button className="nav-btn" onClick={handleSubmit} disabled={sending} style={{ flex: 1, padding: "13px", borderRadius: "8px", border: "none", background: sending ? "#ccc" : "linear-gradient(135deg, " + gold + ", " + darkGold + ")", color: "#1a0e04", fontSize: "14px", cursor: sending ? "not-allowed" : "pointer", fontFamily: "'Playfair Display', serif", fontWeight: "700", letterSpacing: "2px", transition: "all 0.2s", boxShadow: "0 4px 15px rgba(201,168,76,0.35)" }}>
-                {sending ? "Placing Order..." : "Place My Order"}
+                {sending ? "Processing Payment..." : "Pay & Place Order"}
               </button>
             )}
           </div>
